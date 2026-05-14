@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>WOLF LABS | Route 03: Project Cityscape (A1)</title>
+    
+    <!-- Fonts: Outfit (UI), Rajdhani (AR Headers), JetBrains Mono (Coordinates/Tech) -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;700;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        arBg: '#020617',       
+                        arPanel: 'rgba(15, 23, 42, 0.75)', 
+                        arBlue: '#3b82f6',     
+                        arCyan: '#06b6d4',     
+                        arPink: '#ec4899',     
+                        arGreen: '#10b981',    
+                        arRed: '#ef4444',      
+                        arText: '#f8fafc',
+                        arMuted: '#94a3b8'
+                    },
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                        heading: ['Rajdhani', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* HARDCODED DARK BACKGROUND TO PREVENT WHITE FLASHES */
+        :root {
+            --ar-bg: #020617;
+            --ar-panel: rgba(15, 23, 42, 0.75);
+            --ar-blue: #3b82f6;
+            --ar-cyan: #06b6d4;
+            --ar-pink: #ec4899;
+            --ar-green: #10b981;
+            --ar-red: #ef4444;
+            --ar-muted: #94a3b8;
+            --ar-text: #f8fafc;
+        }
+
+        html, body { 
+            background-color: var(--ar-bg) !important; color: var(--ar-text) !important; overflow: hidden; 
+            font-family: 'Outfit', sans-serif; user-select: none; -webkit-tap-highlight-color: transparent;
+        }
+
+        /* AR BACKGROUNDS & URBAN OVERLAY */
+        .urban-map-overlay {
+            position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: 0.12;
+            background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/UK_topography_map.jpg/640px-UK_topography_map.jpg');
+            background-size: cover; background-position: center; mix-blend-mode: screen;
+            filter: grayscale(100%) contrast(150%);
+        }
+        
+        .ar-grid {
+            position: fixed; inset: 0; pointer-events: none; z-index: 2; opacity: 0.15;
+            background-image: 
+                linear-gradient(rgba(6, 182, 212, 0.4) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(6, 182, 212, 0.4) 1px, transparent 1px);
+            background-size: 50px 50px;
+            perspective: 1000px;
+            transform-origin: center top;
+            transform: rotateX(60deg) translateY(-100px) scale(2);
+            animation: gridMove 20s linear infinite;
+        }
+        @keyframes gridMove {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 50px; }
+        }
+
+        .ar-glow {
+            position: fixed; inset: 0; pointer-events: none; z-index: 0;
+            background: radial-gradient(circle at 50% -20%, rgba(6, 182, 212, 0.2) 0%, transparent 60%),
+                        radial-gradient(circle at 50% 120%, rgba(236, 72, 153, 0.15) 0%, transparent 60%);
+        }
+
+        /* UI ELEMENTS */
+        .ar-panel {
+            background: var(--ar-panel);
+            border: 1px solid rgba(6, 182, 212, 0.4);
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(6, 182, 212, 0.15), inset 0 0 20px rgba(6, 182, 212, 0.05);
+            position: relative;
+            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+        }
+        .ar-panel::before {
+            content: ''; position: absolute; top: -1px; left: -1px; width: 20px; height: 20px;
+            border-top: 2px solid var(--ar-cyan); border-left: 2px solid var(--ar-cyan); border-top-left-radius: 8px;
+        }
+        .ar-panel::after {
+            content: ''; position: absolute; bottom: -1px; right: -1px; width: 20px; height: 20px;
+            border-bottom: 2px solid var(--ar-cyan); border-right: 2px solid var(--ar-cyan); border-bottom-right-radius: 8px;
+        }
+
+        /* HUD TOP */
+        #hud-top {
+            position: fixed; top: 0; left: 0; right: 0; padding: 15px 30px;
+            background: rgba(2, 6, 23, 0.85); border-bottom: 1px solid rgba(6, 182, 212, 0.4);
+            z-index: 1000; box-shadow: 0 4px 30px rgba(6, 182, 212, 0.2);
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        }
+        .hud-bar-container { width: 140px; height: 4px; background: rgba(255,255,255,0.1); overflow: hidden; }
+        .hud-bar-fill { height: 100%; transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 0 10px currentColor;}
+
+        /* CONTENT ARENA */
+        #mission-arena { height: 100vh; padding-bottom: 120px; padding-top: 80px; position: relative; z-index: 10; }
+
+        /* BUTTONS */
+        .btn-ar {
+            background: rgba(6, 182, 212, 0.15); color: var(--ar-cyan); font-family: 'Rajdhani', sans-serif; font-weight: 700;
+            padding: 16px 36px; border-radius: 4px; transition: all 0.3s; text-transform: uppercase; letter-spacing: 2px;
+            border: 1px solid var(--ar-cyan); box-shadow: inset 0 0 15px rgba(6, 182, 212, 0.2), 0 0 15px rgba(6, 182, 212, 0.3);
+            font-size: 1.2rem; cursor: pointer;
+        }
+        .btn-ar:hover { background: var(--ar-cyan); color: #020617; box-shadow: 0 0 30px rgba(6, 182, 212, 0.8); transform: scale(1.02);}
+        .btn-ar:active { transform: scale(0.98); }
+
+        /* SLIDER */
+        input[type=range].ar-slider { -webkit-appearance: none; width: 100%; background: transparent; }
+        input[type=range].ar-slider::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: rgba(6, 182, 212, 0.2); border-radius: 2px; }
+        input[type=range].ar-slider::-webkit-slider-thumb { -webkit-appearance: none; height: 24px; width: 24px; border-radius: 50%; background: var(--ar-bg); cursor: pointer; margin-top: -10px; border: 3px solid var(--ar-cyan); box-shadow: 0 0 15px var(--ar-cyan); transition: transform 0.2s; }
+        input[type=range].ar-slider::-webkit-slider-thumb:hover { transform: scale(1.2); border-color: var(--ar-pink); box-shadow: 0 0 20px var(--ar-pink);}
+
+        /* CUSTOM MECHANIC: DATA SYNC (VOCAB DRAG & DROP) */
+        .sync-pill {
+            background: rgba(2, 6, 23, 0.8); color: var(--ar-cyan); border: 1px solid var(--ar-cyan);
+            padding: 10px 25px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-weight: 800;
+            font-size: 1.2rem; cursor: grab; transition: all 0.2s; display: inline-block; user-select: none;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.2); text-transform: uppercase;
+        }
+        .sync-pill:hover { background: var(--ar-cyan); color: #020617; transform: translateY(-3px); box-shadow: 0 0 20px rgba(6, 182, 212, 0.6);}
+        .sync-pill.dragging { opacity: 0.5; transform: scale(1.05); }
+
+        .sync-dropzone {
+            position: relative; border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 8px; overflow: hidden;
+            background: rgba(15, 23, 42, 0.6); transition: all 0.3s; min-height: 180px; display: flex; flex-direction: column;
+        }
+        .sync-dropzone.drag-over { border-color: var(--ar-cyan); box-shadow: 0 0 20px rgba(6, 182, 212, 0.4); }
+        .sync-image-bg {
+            position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0.3;
+            filter: grayscale(100%) blur(2px); transition: all 0.5s ease; z-index: 1;
+        }
+        .sync-content { position: relative; z-index: 10; padding: 1.5rem; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; align-items: center; background: linear-gradient(to top, rgba(2,6,23,0.9), transparent);}
+        .sync-target-area { width: 100%; height: 50px; border: 2px dashed rgba(6, 182, 212, 0.5); border-radius: 4px; display: flex; align-items: center; justify-content: center; background: rgba(2,6,23,0.5); transition: all 0.3s;}
+        
+        .sync-dropzone.matched .sync-image-bg { opacity: 0.6; filter: grayscale(0%) blur(0px); }
+        .sync-dropzone.matched { border-color: var(--ar-cyan); box-shadow: 0 0 20px rgba(6, 182, 212, 0.3); }
+
+        /* CUSTOM MECHANIC: THE GEO-CALIBRATOR */
+        .geo-map-container {
+            width: 100%; height: 350px; background-color: rgba(2,6,23,0.8); border: 1px solid rgba(6, 182, 212, 0.4); border-radius: 8px;
+            position: relative; overflow: hidden; box-shadow: inset 0 0 40px rgba(6, 182, 212, 0.2);
+            background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/8/8c/UK_topography_map.jpg/640px-UK_topography_map.jpg');
+            background-size: cover; background-position: center; background-blend-mode: overlay;
+        }
+        .geo-radar-bg {
+            position: absolute; inset: 0; opacity: 0.6; transition: transform 1s cubic-bezier(0.4, 0, 0.2, 1);
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(6, 182, 212, 0.15) 0%, transparent 60%),
+                repeating-radial-gradient(circle at 50% 50%, transparent, transparent 40px, rgba(6, 182, 212, 0.25) 41px);
+        }
+        .geo-radar-sweep {
+            position: absolute; top: 50%; left: 50%; width: 1000px; height: 1000px;
+            background: conic-gradient(from 0deg, transparent 70%, rgba(6, 182, 212, 0.4) 100%);
+            transform-origin: 0 0; animation: sweep 4s linear infinite; pointer-events: none;
+        }
+        @keyframes sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        
+        .geo-node {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 20px; height: 20px; border-radius: 50%; background: var(--ar-cyan);
+            box-shadow: 0 0 20px var(--ar-cyan); animation: pulseNode 2s infinite; z-index: 10;
+            transition: all 0.5s;
+        }
+        @keyframes pulseNode { 0% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(6, 182, 212, 0); } 100% { box-shadow: 0 0 0 0 rgba(6, 182, 212, 0); } }
+
+        .hologram-polaroid {
+            position: absolute; top: 50%; left: 50%; margin-left: 40px; margin-top: -60px;
+            border: 2px solid var(--ar-cyan); padding: 8px 8px 30px 8px; background: rgba(2, 6, 23, 0.9);
+            box-shadow: 0 0 30px var(--ar-cyan); backdrop-filter: blur(8px);
+            transform: scale(0) rotate(0deg); transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 20; transform-origin: left bottom;
+        }
+        .hologram-polaroid img { width: 150px; height: 150px; object-fit: cover; filter: sepia(0.3) hue-rotate(180deg) saturate(200%); border: 1px solid rgba(6, 182, 212, 0.5); }
+        .hologram-polaroid::after { content: '🔒 GEO-LOCKED 📍'; position: absolute; bottom: 8px; left: 0; width: 100%; text-align: center; color: var(--ar-pink); font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: bold; letter-spacing: 1px;}
+        
+        /* State Verified */
+        .geo-map-container.verified .geo-radar-bg { transform: scale(1.5); }
+        .geo-map-container.verified .geo-node { background: var(--ar-pink); box-shadow: 0 0 30px var(--ar-pink); animation: none; width: 30px; height: 30px; }
+        .geo-map-container.verified .hologram-polaroid { transform: scale(1) rotate(5deg); border-color: var(--ar-pink); box-shadow: 0 0 40px rgba(236, 72, 153, 0.5); }
+
+        .geo-dropzone { 
+            display: inline-flex; align-items: center; justify-content: center; min-width: 80px; height: 40px; 
+            border-bottom: 2px dashed var(--ar-muted); vertical-align: middle; margin: 0 10px;
+            color: var(--ar-muted); transition: all 0.3s; font-weight: bold;
+        }
+        .geo-dropzone.drag-over { border-bottom-color: var(--ar-cyan); color: var(--ar-cyan); background: rgba(6, 182, 212, 0.1); }
+        .geo-dropzone.filled { border-bottom: 2px solid var(--ar-pink); color: var(--ar-pink); text-shadow: 0 0 10px var(--ar-pink); background: transparent; }
+        
+        .geo-pill { 
+            background: rgba(2, 6, 23, 0.8); color: var(--ar-cyan); border: 1px solid var(--ar-cyan); 
+            padding: 10px 25px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-weight: 800; 
+            font-size: 1.2rem; cursor: grab; transition: all 0.2s; display: inline-block; user-select: none;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.2);
+        }
+        .geo-pill:hover { background: var(--ar-cyan); color: #020617; transform: translateY(-3px); box-shadow: 0 0 20px rgba(6, 182, 212, 0.6);}
+        .geo-pill.dragging { opacity: 0.5; transform: scale(1.05); }
+
+        /* BUILDER PILLS */
+        .build-pill { background-color: rgba(2, 6, 23, 0.8); border: 1px solid rgba(6, 182, 212, 0.5); color: var(--ar-cyan); padding: 12px 20px; font-family: 'JetBrains Mono', monospace; font-weight: bold; font-size: 1.1rem; border-radius: 4px; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 15px rgba(0,0,0,0.5); text-transform: lowercase;}
+        .build-pill:hover { border-color: var(--ar-pink); background: rgba(236, 72, 153, 0.1); transform: translateY(-2px); color: var(--ar-pink); box-shadow: 0 0 15px rgba(236, 72, 153, 0.4);}
+        .build-pill.used { opacity: 0; pointer-events: none; transform: scale(0.8); }
+
+        /* LOGIC BOARD */
+        .node-card { background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(6, 182, 212, 0.4); color: #f8fafc; padding: 1.5rem; font-family: 'Outfit', sans-serif; font-size: 1.2rem; font-weight: 500; border-radius: 8px; position: relative; cursor: pointer; transition: all 0.2s; text-align: center; backdrop-filter: blur(5px);}
+        .node-card:hover:not(.matched) { border-color: var(--ar-cyan); transform: scale(1.02); z-index: 20; background: rgba(6, 182, 212, 0.15); box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);}
+        .node-card.active { border-color: var(--ar-pink); background: rgba(236, 72, 153, 0.15); box-shadow: 0 0 25px rgba(236, 72, 153, 0.4);}
+        .node-card.matched { border-color: var(--ar-green); color: var(--ar-green); background: rgba(16, 185, 129, 0.1); pointer-events: none; opacity: 0.5; }
+
+        /* CORRUPTED NOTES */
+        .redacted-word { background-color: var(--ar-red); color: white; cursor: pointer; transition: all 0.2s; padding: 2px 10px; border-radius: 4px; font-family: 'JetBrains Mono', monospace;}
+        .redacted-word:hover { background-color: #fff; color: #000; box-shadow: 0 0 15px #fff;}
+        .redacted-fixed { background-color: transparent; color: var(--ar-cyan); pointer-events: none; border-bottom: 2px solid var(--ar-cyan); font-weight: bold; text-shadow: 0 0 10px var(--ar-cyan);}
+
+        /* PURE JS LEVER (TUNER) */
+        .lever-container {
+            width: 80px; height: 40px; border-radius: 20px; cursor: pointer; position: relative;
+            transition: background-color 0.3s ease; box-shadow: inset 0 2px 5px rgba(0,0,0,0.5); border: 2px solid var(--ar-muted);
+        }
+        .lever-state-left { background-color: rgba(2, 6, 23, 0.8);}
+        .lever-state-right { background-color: var(--ar-cyan); border-color: var(--ar-cyan);}
+        .lever-knob {
+            width: 32px; height: 32px; background-color: var(--ar-muted); border-radius: 50%;
+            position: absolute; top: 2px; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+        .lever-state-left .lever-knob { transform: translateX(2px); }
+        .lever-state-right .lever-knob { transform: translateX(42px); background-color: #020617;}
+
+        /* MCQ DATA ROWS */
+        .mcq-row { background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 8px; transition: all 0.2s ease; cursor: pointer; display: flex; align-items: center; padding: 1.2rem 1.5rem; backdrop-filter: blur(10px); font-family: 'Outfit', sans-serif; font-size: 1.2rem; }
+        .mcq-row:hover:not(.locked-check) { border-color: var(--ar-cyan); transform: translateX(5px); background: rgba(6, 182, 212, 0.15); box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);}
+        .mcq-row.correct { background: rgba(16, 185, 129, 0.15); border-color: var(--ar-green); color: var(--ar-green); text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);}
+        .mcq-row.wrong { background: rgba(239, 68, 68, 0.15); border-color: var(--ar-red); color: var(--ar-red); text-shadow: 0 0 10px rgba(239, 68, 68, 0.5);}
+
+        /* FLIP CARDS */
+        .flip-card { perspective: 1000px; cursor: pointer; }
+        .flip-inner { position: relative; width: 100%; height: 100%; text-align: center; transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1); transform-style: preserve-3d; }
+        .flip-card.flipped .flip-inner { transform: rotateY(180deg); }
+        .flip-front, .flip-back { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(6, 182, 212, 0.4); backdrop-filter: blur(10px);}
+        .flip-back { background: rgba(6, 182, 212, 0.1); border-color: var(--ar-cyan); transform: rotateY(180deg); box-shadow: 0 0 20px rgba(6, 182, 212, 0.2);}
+
+        /* FOOTER CONSOLE */
+        #nav-console {
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 80px;
+            background: rgba(2, 6, 23, 0.95); border-top: 1px solid rgba(6, 182, 212, 0.4);
+            display: flex; justify-content: space-between; align-items: center; padding: 0 30px; z-index: 5000;
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        }
+
+        /* DRAWERS */
+        .drawer { 
+            background: rgba(2, 6, 23, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            color: #f8fafc; border-left: 1px solid var(--ar-cyan); transform: translateX(100%); 
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1); z-index: 5100; box-shadow: -20px 0 50px rgba(0,0,0,0.9);
+        }
+        .drawer-left { transform: translateX(-100%); border-left: none; border-right: 1px solid var(--ar-cyan); }
+        .drawer.active { transform: translateX(0); }
+
+        /* EFFECTS */
+        .fade-in { animation: fadeIn 0.5s ease forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake { 10%, 90% { transform: translate3d(-2px, 0, 0); } 20%, 80% { transform: translate3d(4px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-6px, 0, 0); } 40%, 60% { transform: translate3d(6px, 0, 0); } }
+        
+        #confetti-canvas { position: fixed; inset: 0; pointer-events: none; z-index: 9999; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: rgba(6, 182, 212, 0.3); border-radius: 3px; }
+        ::-webkit-scrollbar-track { background: #020617; }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden text-base">
+
+    <div class="urban-map-overlay"></div>
+    <div class="ar-glow"></div>
+    <div class="ar-grid"></div>
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- HUD SUPERIOR -->
+    <div id="hud-top" class="hidden justify-between items-center w-full">
+        <div class="flex items-center gap-10">
+            <div class="flex flex-col gap-1">
+                <span class="text-[10px] font-bold text-[var(--ar-cyan)] uppercase tracking-widest font-mono">Signal (HP)</span>
+                <div class="hud-bar-container"><div id="hp-bar" class="hud-bar-fill bg-[var(--ar-cyan)]" style="width: 100%;"></div></div>
+            </div>
+            <div class="flex flex-col gap-1">
+                <span class="text-[10px] font-bold text-[var(--ar-pink)] uppercase tracking-widest font-mono">Data (XP)</span>
+                <div class="hud-bar-container"><div id="xp-bar" class="hud-bar-fill bg-[var(--ar-pink)]" style="width: 0%;"></div></div>
+            </div>
+        </div>
+        <div class="text-right flex items-center gap-6">
+            <button onclick="toggleFullscreen()" class="text-[var(--ar-muted)] hover:text-white transition-colors" title="Fullscreen"><i class="fas fa-expand text-lg"></i></button>
+            <div class="text-right hidden sm:block ml-4">
+                <p class="font-heading text-xl font-bold text-white tracking-[0.2em] leading-none uppercase">WOLF LABS</p>
+                <p class="text-[9px] font-bold text-[var(--ar-cyan)] tracking-[0.3em] uppercase mt-1 font-mono">AR Geo-Tracker</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAINEL PRINCIPAL (CAPA) -->
+    <main id="dashboard" class="flex flex-col items-center relative px-8 pt-20 pb-48 z-10 w-full h-screen overflow-y-auto">
+        <div class="max-w-4xl w-full flex flex-col items-center text-center space-y-6 animate-in fade-in my-auto pb-10 relative z-20">
+            
+            <div class="relative w-48 h-48 md:w-56 md:h-56 shrink-0 mb-6">
+                <!-- AR Globe -->
+                <div class="absolute inset-0 flex items-center justify-center">
+                    <div class="w-full h-full rounded-full border border-[var(--ar-cyan)]/40 flex items-center justify-center bg-[var(--ar-bg)]/60 shadow-[0_0_50px_rgba(6,182,212,0.3)] overflow-hidden relative backdrop-blur-sm">
+                        <div class="absolute inset-0 rounded-full border-t-2 border-l-2 border-[var(--ar-cyan)] animate-spin" style="animation-duration: 4s;"></div>
+                        <div class="absolute inset-4 rounded-full border-b-2 border-r-2 border-[var(--ar-pink)] animate-spin" style="animation-duration: 3s; animation-direction: reverse;"></div>
+                        <i class="fas fa-satellite text-7xl text-[var(--ar-cyan)] opacity-90 filter drop-shadow-[0_0_15px_#06b6d4]"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-4 z-20 relative">
+                <span class="bg-[var(--ar-cyan)]/10 border border-[var(--ar-cyan)]/50 text-[var(--ar-cyan)] px-4 py-1.5 font-bold text-[10px] font-mono tracking-widest rounded mb-2 inline-block uppercase shadow-[0_0_10px_rgba(6,182,212,0.3)]">Level A1 • Tracking Protocol</span>
+                <h1 class="text-5xl md:text-7xl font-bold text-white leading-tight tracking-widest font-heading uppercase drop-shadow-md">Project <br><span class="text-[var(--ar-cyan)] font-light tracking-[0.2em] text-shadow-[0_0_20px_#06b6d4]">Cityscape</span></h1>
+                <p class="text-xl text-[var(--ar-muted)] font-sans mt-6 max-w-2xl mx-auto leading-relaxed">Calibrate the satellite, locate the target, and master <strong class="text-white">Prepositions of Place (IN, ON, AT)</strong>.</p>
+            </div>
+            
+            <button onclick="startMission()" class="mt-10 btn-ar flex items-center gap-3 z-20 relative">
+                <i class="fas fa-radar"></i> Initialize Link
+            </button>
+        </div>
+    </main>
+
+    <!-- ARENA DE CONTEÚDO DA LIÇÃO -->
+    <main id="mission-arena" class="hidden flex-grow flex-col overflow-hidden relative mt-16">
+        <div id="mission-content" class="flex-grow overflow-y-auto px-6 py-12 flex flex-col items-center w-full relative z-20"></div>
+    </main>
+
+    <!-- CONSOLA DE NAVEGAÇÃO -->
+    <footer id="nav-console" class="hidden flex justify-between items-center w-full font-mono">
+        <div class="flex items-center gap-6 w-1/4">
+            <button onclick="toggleLessonNavigator()" class="text-[var(--ar-muted)] hover:text-[var(--ar-cyan)] transition-colors text-xs font-bold tracking-widest uppercase flex items-center gap-2" title="Directory"><i class="fas fa-layer-group text-lg"></i> Nodes</button>
+        </div>
+        <div class="flex flex-col items-center gap-3 w-1/2">
+            <div class="flex items-center gap-12">
+                <button onclick="prevStep()" class="text-gray-500 hover:text-white transition-colors"><i class="fas fa-angle-left text-2xl"></i></button>
+                <span id="console-counter" class="text-[10px] font-bold text-[var(--ar-cyan)] tracking-[0.3em] uppercase">NODE 01</span>
+                <button onclick="nextStep()" class="text-gray-500 hover:text-white transition-all hover:scale-110"><i class="fas fa-angle-right text-2xl"></i></button>
+            </div>
+            <div class="w-72 h-[2px] bg-slate-800 overflow-hidden relative">
+                <div id="progress-bar" class="h-full bg-[var(--ar-cyan)] transition-all duration-300 shadow-[0_0_10px_#06b6d4]" style="width: 0%;"></div>
+            </div>
+        </div>
+        <div class="flex items-center justify-end gap-6 w-1/4">
+            <button onclick="toggleTeacherHUD()" class="text-[var(--ar-muted)] hover:text-white transition-colors text-xs font-bold tracking-widest uppercase mr-4" title="Control Room"><i class="fas fa-shield-halved text-lg"></i></button>
+            <button onclick="toggleWhiteboard()" class="text-[var(--ar-muted)] hover:text-white transition-colors text-xs font-bold tracking-widest uppercase flex items-center gap-2" title="Notes"><i class="fas fa-terminal text-lg"></i> Log</button>
+        </div>
+    </footer>
+
+    <!-- GAVETAS LATERAIS -->
+    <aside id="lesson-navigator" class="fixed left-0 top-0 h-screen w-80 drawer drawer-left flex flex-col pt-20 z-[5100]">
+        <div class="p-6 border-b border-slate-800 text-white font-bold uppercase tracking-widest flex justify-between items-center text-lg font-heading bg-[var(--ar-bg)]/90">
+            System Nodes <button onclick="toggleLessonNavigator()"><i class="fas fa-xmark text-gray-500 hover:text-white"></i></button>
+        </div>
+        <div id="nav-steps-list" class="flex-grow overflow-y-auto p-4 space-y-2 font-mono"></div>
+        <button onclick="goHome()" class="p-4 bg-[var(--ar-bg)] text-[var(--ar-red)] font-bold text-center border-t border-slate-800 hover:bg-[var(--ar-red)]/10 transition-all uppercase tracking-widest text-xs font-mono"><i class="fas fa-power-off mr-2"></i> Terminate Link</button>
+    </aside>
+
+    <aside id="whiteboard" class="fixed right-0 top-0 h-screen w-[450px] drawer flex flex-col pt-20 z-[5100]">
+        <div class="p-6 border-b border-slate-800 flex justify-between items-center bg-[var(--ar-bg)]/90">
+            <h2 class="font-heading text-xl font-bold text-white tracking-widest uppercase"><i class="fas fa-terminal text-[var(--ar-cyan)] mr-3"></i>Operator Log</h2>
+            <button onclick="toggleWhiteboard()" class="text-gray-500 hover:text-white"><i class="fas fa-xmark text-xl"></i></button>
+        </div>
+        <div class="p-4 bg-[var(--ar-panel)] flex flex-wrap gap-2 border-b border-slate-800 font-mono">
+            <button onclick="insertTag('// IN = 3D Space')" class="text-[10px] bg-[var(--ar-bg)] border border-slate-700 text-gray-400 px-3 py-1.5 rounded hover:border-[var(--ar-cyan)] hover:text-[var(--ar-cyan)] transition-all font-bold uppercase tracking-widest shadow-[0_0_10px_rgba(6,182,212,0)] hover:shadow-[0_0_10px_rgba(6,182,212,0.3)]">IN</button>
+            <button onclick="insertTag('// ON = Surface/Line')" class="text-[10px] bg-[var(--ar-bg)] border border-slate-700 text-gray-400 px-3 py-1.5 rounded hover:border-[var(--ar-pink)] hover:text-[var(--ar-pink)] transition-all font-bold uppercase tracking-widest shadow-[0_0_10px_rgba(236,72,153,0)] hover:shadow-[0_0_10px_rgba(236,72,153,0.3)]">ON</button>
+            <button onclick="insertTag('// AT = Point/Place')" class="text-[10px] bg-[var(--ar-bg)] border border-slate-700 text-gray-400 px-3 py-1.5 rounded hover:border-[var(--ar-green)] hover:text-[var(--ar-green)] transition-all font-bold uppercase tracking-widest shadow-[0_0_10px_rgba(16,185,129,0)] hover:shadow-[0_0_10px_rgba(16,185,129,0.3)]">AT</button>
+        </div>
+        <textarea id="wb-text" class="flex-grow bg-[var(--ar-bg)] text-[var(--ar-cyan)] p-8 resize-none focus:outline-none font-mono text-sm leading-relaxed" spellcheck="false" placeholder="> Input tracking notes here..._"></textarea>
+    </aside>
+
+    <aside id="teacher-hud" class="fixed right-0 top-0 h-screen w-[350px] drawer flex flex-col pt-20 z-[5100]">
+        <div class="p-6 border-b border-slate-800 flex justify-between items-center bg-[var(--ar-bg)]/90">
+            <h2 class="font-heading text-xl font-bold text-white tracking-widest uppercase"><i class="fas fa-shield-halved mr-3 text-[var(--ar-blue)]"></i>Command</h2>
+            <button onclick="toggleTeacherHUD()"><i class="fas fa-xmark text-xl text-gray-500 hover:text-white"></i></button>
+        </div>
+        <div class="flex-grow overflow-y-auto p-6 space-y-8 bg-[var(--ar-panel)]">
+            <div class="bg-[var(--ar-bg)] p-6 rounded border border-slate-700 shadow-sm">
+                <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 font-mono">Module Objective</p>
+                <p class="text-sm text-gray-300 leading-relaxed font-sans">Level A1. Teach Prepositions of Place (<strong class="text-[var(--ar-cyan)]">IN, ON, AT</strong>) using city landmarks (Park, Bridge, Shops).</p>
+            </div>
+            <div>
+                <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4 font-mono">Operator Feedback</p>
+                <div class="space-y-3 font-heading tracking-widest text-sm">
+                    <button onclick="triggerPraise('SYSTEM ALIGNED', 'Perfect Grammar.')" class="w-full py-4 bg-transparent text-[var(--ar-green)] border border-[var(--ar-green)] rounded font-bold hover:bg-[var(--ar-green)]/10 transition-all uppercase shadow-[0_0_15px_rgba(16,185,129,0.2)]">GREEN (GRAMMAR)</button>
+                    <button onclick="triggerPraise('COMMS CLEAR', 'Great Speaking.')" class="w-full py-4 bg-transparent text-[var(--ar-cyan)] border border-[var(--ar-cyan)] rounded font-bold hover:bg-[var(--ar-cyan)]/10 transition-all uppercase shadow-[0_0_15px_rgba(6,182,212,0.2)]">CYAN (SPEAKING)</button>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Overlay de Elogio -->
+    <div id="praise-overlay" class="fixed inset-0 z-[6000] flex items-center justify-center bg-black/90 backdrop-blur-md opacity-0 pointer-events-none transition-opacity duration-300 p-4">
+        <div id="praise-card" class="text-center transform scale-50 transition-transform duration-500">
+            <div class="w-40 h-40 rounded-full border-4 mx-auto mb-8 flex items-center justify-center bg-[#020617] relative overflow-hidden" id="praise-circle">
+                <div class="absolute inset-0 bg-current opacity-20"></div>
+                <i class="fas fa-check text-7xl relative z-10" id="praise-icon"></i>
+            </div>
+            <h2 id="praise-main" class="font-heading text-6xl md:text-8xl font-bold tracking-[0.2em] uppercase mb-4 text-white"></h2>
+            <p id="praise-sub" class="text-xl font-mono tracking-widest uppercase mt-6"></p>
+        </div>
+    </div>
+
+    <!-- SCRIPT DO MOTOR PRINCIPAL -->
+    <script>
+        let state = { hp: 100, xp: 0, current: 0 };
+        const esc = (s) => s ? s.replace(/'/g, "\\'").replace(/"/g, "&quot;") : "";
+        const TYPES = { COVER: "Boot", WARMUP: "Scan", VOCAB: "Data", VIDEO: "Feed", GRAMMAR: "Logic", BUILDER: "Input", GAME: "Calibrate", SPEAKING: "Comms", DRILL: "Override", WRAP: "End" };
+
+        function step(type, title, html) { return { type, title, html }; }
+
+        function updateHUD() {
+            const h = document.getElementById('hp-bar'); if(h) h.style.width = Math.max(0, state.hp) + '%';
+            const x = document.getElementById('xp-bar'); if(x) x.style.width = Math.min(100, (state.xp / 120) * 100) + '%'; // ~25 steps
+            const sCount = document.getElementById('console-counter'); if(sCount) sCount.innerText = `NODE ${String(state.current + 1).padStart(2, '0')}/${lessonData.length}`;
+            const pBar = document.getElementById('progress-bar'); if(pBar) pBar.style.width = `${((state.current + 1) / lessonData.length) * 100}%`;
+
+            const navList = document.getElementById('nav-steps-list');
+            if (navList) {
+                Array.from(navList.children).forEach((btn, i) => {
+                    if(i === state.current) { btn.classList.add('bg-slate-800/50', 'text-white', 'border-l-2', 'border-[var(--ar-cyan)]'); btn.classList.remove('text-gray-500', 'border-transparent'); } 
+                    else { btn.classList.remove('bg-slate-800/50', 'text-white', 'border-l-2', 'border-[var(--ar-cyan)]'); btn.classList.add('text-gray-500', 'border-transparent'); }
+                });
+            }
+        }
+
+        function insertTag(tag) { 
+            const text = document.getElementById('wb-text'); 
+            if (text) { text.value += (text.value.length > 0 ? '\n' : '') + tag + ' '; text.focus(); } 
+        }
+
+        // --- TEMPLATES AR THEME ---
+        
+        const bGuide = (title, points, icon="fa-satellite") => step(TYPES.COVER, title, `
+            <div class="max-w-4xl mx-auto space-y-10 animate-in fade-in py-10 w-full">
+                <div class="ar-panel p-10 md:p-14 text-center">
+                    <div class="w-24 h-24 bg-[var(--ar-bg)] rounded-full flex items-center justify-center mx-auto mb-8 border border-[var(--ar-cyan)] shadow-[0_0_30px_rgba(6,182,212,0.5)]">
+                        <i class="fas ${icon} text-4xl text-[var(--ar-cyan)]"></i>
+                    </div>
+                    <h2 class="font-heading text-5xl md:text-6xl font-bold text-white tracking-widest mb-10 uppercase">${title}</h2>
+                    <div class="space-y-6 text-left max-w-2xl mx-auto bg-slate-900/50 p-8 rounded border border-slate-700">
+                        <p class="font-mono text-[var(--ar-cyan)] text-[10px] uppercase font-bold tracking-[0.2em] mb-4 border-b border-slate-700 pb-2">Mission Parameters</p>
+                        ${points.map(p => `<p class="text-lg text-gray-300 font-sans leading-relaxed flex items-start gap-4"><i class="fas fa-crosshairs text-[var(--ar-pink)] mt-1 text-sm opacity-80"></i> ${p}</p>`).join('')}
+                    </div>
+                </div>
+            </div>
+        `);
+
+        const bSlider = (title, prompt, optA, optB, questions, starters) => step(TYPES.WARMUP, title, `
+            <div class="max-w-5xl mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center space-y-10 animate-in fade-in w-full">
+                <p class="text-[10px] font-bold text-[var(--ar-cyan)] uppercase tracking-[0.3em] font-mono border border-[var(--ar-cyan)] px-4 py-1 rounded bg-[var(--ar-cyan)]/10">Initial Scan</p>
+                <h2 class="font-heading text-4xl md:text-5xl font-bold text-white tracking-widest uppercase">${prompt}</h2>
+                
+                <div class="w-full max-w-3xl ar-panel py-12 flex flex-col items-center mt-6">
+                    <div class="w-full px-12 relative mb-6">
+                        <input type="range" min="0" max="100" value="50" class="ar-slider">
+                    </div>
+                    <div class="flex justify-between w-full px-8 text-xs font-bold uppercase tracking-widest font-mono">
+                        <span class="text-gray-500">${optA}</span>
+                        <span class="text-[var(--ar-cyan)]">${optB}</span>
+                    </div>
+                </div>
+
+                <div class="w-full max-w-4xl p-8 mt-8 text-left border-l-2 border-[var(--ar-cyan)] bg-[var(--ar-panel)] rounded shadow-[0_0_20px_rgba(0,0,0,0.5)] flex flex-col md:flex-row gap-10">
+                    <div class="flex-1">
+                        <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-6 font-mono">Query</p>
+                        <div class="space-y-5">
+                            ${questions.map(q => `<p class="text-xl font-sans text-white leading-snug"><i class="fas fa-angle-right text-[var(--ar-cyan)] mr-3 opacity-80"></i>${q}</p>`).join('')}
+                        </div>
+                    </div>
+                    <div class="flex-1 border-t md:border-t-0 md:border-l border-slate-700 pt-6 md:pt-0 md:pl-10">
+                        <p class="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-6 font-mono">Response Pattern</p>
+                        <div class="space-y-6">
+                            ${starters.map(s => `<p class="text-xl text-[var(--ar-muted)] font-mono">"${s}"</p>`).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `);
+
+        // DYNAMIC VOCAB: DATA SYNC TERMINAL
+        const bDataSync = (id, title, instruction, items) => {
+            let words = shuffleArray([...items]).map(w => `
+                <div class="sync-pill" draggable="true" ondragstart="dragSync(event, this)" ondragend="this.classList.remove('dragging')" data-word="${esc(w.word)}">
+                    ${w.word}
+                </div>
+            `).join('');
+
+            let dropzones = items.map((w, i) => `
+                <div class="sync-dropzone" data-expected="${esc(w.word)}" ondrop="dropSync(event, this, '${id}')" ondragover="allowDropSync(event)" ondragleave="leaveDropSync(event)">
+                    <div class="sync-image-bg" style="background-image: url('https://source.unsplash.com/400x300/?${esc(w.imgKeyword)},london')"></div>
+                    <div class="sync-content">
+                        <p class="text-white font-sans text-lg text-center leading-relaxed drop-shadow-md">"${w.def}"</p>
+                        <div class="sync-target-area mt-4">
+                            <span class="text-[10px] font-mono text-[var(--ar-cyan)] uppercase tracking-widest pointer-events-none opacity-50">Drop Data Label</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            return step(TYPES.VOCAB, title, `
+                <div class="max-w-5xl mx-auto w-full flex flex-col items-center py-10 animate-in fade-in" id="sync-container-${id}">
+                    <p class="text-[10px] font-bold text-[var(--ar-cyan)] uppercase tracking-widest mb-4 border border-[var(--ar-cyan)] px-4 py-1 rounded bg-[var(--ar-cyan)]/10 font-mono"><i class="fas fa-satellite-dish mr-2"></i> Data Sync Terminal</p>
+                    <h2 class="font-heading text-4xl md:text-5xl font-bold text-white tracking-widest mb-4 text-center uppercase">${title}</h2>
+                    <p class="text-gray-400 font-sans text-lg mb-10 text-center max-w-2xl">${instruction}</p>
+                    
+                    <div class="w-full max-w-2xl mb-10 flex flex-wrap justify-center gap-4" id="sync-bank-${id}">
+                        ${words}
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full max-w-5xl" id="sync-grid-${id}">
+                        ${dropzones}
+                    </div>
+                </div>
+            `);
+        };
+
+        // AR CAMERA FEED (Supports playing full video if end is null)
+        const bVideo = (title, videoId, start, end, instruction) => {
+            const endParam = end ? `&end=${end}` : '';
+            return step(TYPES.VIDEO, title, `
+                <div class="max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[60vh] py-10 animate-in fade-in w-full">
+                    <p class="text-[10px] font-bold text-[var(--ar-cyan)] uppercase tracking-widest mb-4 border border-[var(--ar-cyan)] px-4 py-1 rounded bg-[var(--ar-cyan)]/10 font-mono"><i class="fas fa-satellite mr-2"></i> Visual Feed</p>
+                    <h2 class="font-heading text-4xl md:text-5xl font-bold text-white tracking-widest mb-8 text-center uppercase">${title}</h2>
+                    
+                    <div class="w-full aspect-video border border-[var(--ar-cyan)]/50 rounded shadow-[0_0_40px_rgba(6,182,212,0.3)] bg-black overflow-hidden mb-8 relative z-10">
+                        <div class="absolute inset-0 pointer-events-none z-20 border-[20px] border-black/20"></div>
+                        <div class="absolute top-4 left-4 flex items-center gap-2 z-30 bg-black/60 border border-slate-700 px-3 py-1 rounded-sm backdrop-blur-sm">
+                            <div class="w-2 h-2 rounded-full bg-[var(--ar-pink)] animate-pulse shadow-[0_0_5px_#ec4899]"></div>
+                            <span class="text-white font-mono text-[10px] font-bold tracking-[0.2em] uppercase">LINK ACTIVE</span>
+                        </div>
+                        <div class="absolute bottom-4 right-4 z-30 font-mono text-[10px] text-[var(--ar-cyan)] tracking-widest">LAT:51.5072°N LON:0.1276°W</div>
+                        <iframe class="w-full h-full relative z-10" src="https://www.youtube.com/embed/${videoId}?start=${start}${endParam}&rel=0&modestbranding=1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                    </div>
+                    
+                    <div class="ar-panel w-full text-center p-6 bg-slate-900/80">
+                        <p class="text-gray-300 font-sans text-lg"><i class="fas fa-crosshairs text-[var(--ar-cyan)] mr-3"></i> ${instruction}</p>
+                    </div>
+                </div>
+            `);
+        };
+
+        const bConsultQuiz = (id, title, prompt, options, correctIdx) => step(TYPES.DRILL, title, `
+            <div class="max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center space-y-8 animate-in fade-in w-full">
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-[0.3em] mb-2 bg-slate-800 border border-slate-700 px-4 py-1 rounded font-mono">Data Extraction</p>
+                <h2 class="font-heading text-3xl md:text-5xl font-bold text-white tracking-widest uppercase max-w-3xl">${prompt}</h2>
+                
+                <div class="w-full max-w-2xl space-y-4 mt-8">
+                    ${options.map((opt, i) => `
+                        <div class="mcq-row locked-check group" onclick="handleQuizTrial('${id}', this, ${i === correctIdx})">
+                            <div class="w-10 h-10 border border-slate-600 bg-slate-900 flex items-center justify-center text-sm font-bold text-gray-500 mr-5 font-mono group-hover:border-[var(--ar-cyan)] transition-colors rounded">${String.fromCharCode(65 + i)}</div>
+                            <span class="text-lg font-sans text-white text-left">${opt}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `);
+
+        // THE GEO-CALIBRATOR
+        const bGeoCalibrator = (id, title, instruction, text1, expectedPrep, text2, imgKeyword) => {
+            let pills = shuffleArray(['IN', 'ON', 'AT']).map(w => `
+                <div class="geo-pill" draggable="true" ondragstart="dragGeo(event, this)" ondragend="this.classList.remove('dragging')" data-word="${w}">${w}</div>
+            `).join('');
+
+            return step(TYPES.GAME, title, `
+                <div class="max-w-5xl mx-auto w-full flex flex-col items-center justify-center min-h-[60vh] py-10 animate-in fade-in" id="geo-container-${id}">
+                    <p class="text-[10px] font-bold text-[var(--ar-cyan)] uppercase tracking-[0.3em] mb-4 bg-[var(--ar-cyan)]/10 border border-[var(--ar-cyan)] px-4 py-1 rounded font-mono"><i class="fas fa-location-crosshairs mr-2"></i> Geo-Calibrator</p>
+                    <h2 class="font-heading text-4xl md:text-5xl font-bold text-white tracking-widest mb-4 text-center uppercase">${title}</h2>
+                    <p class="text-gray-400 font-sans text-lg mb-12 text-center max-w-2xl">${instruction}</p>
+                    
+                    <div class="w-full max-w-md mb-8 flex justify-center gap-6" id="geo-bank-${id}">
+                        ${pills}
+                    </div>
+
+                    <div class="w-full max-w-3xl bg-slate-900/80 p-6 rounded-t-lg border-x border-t border-slate-700 text-center font-mono text-2xl text-white">
+                        ${text1} 
+                        <div class="geo-dropzone" data-expected="${expectedPrep}" ondrop="dropGeo(event, this, '${id}')" ondragover="allowDropGeo(event)" ondragleave="leaveDropGeo(event)">
+                            ___
+                        </div> 
+                        ${text2}
+                    </div>
+
+                    <div class="geo-map-container" id="geo-map-${id}">
+                        <div class="geo-radar-bg"></div>
+                        <div class="geo-radar-sweep"></div>
+                        <div class="geo-node"></div>
+                        
+                        <div class="hologram-polaroid">
+                            <img src="https://source.unsplash.com/300x300/?${esc(imgKeyword)},london" alt="Location" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'150\\' height=\\'150\\'><rect width=\\'150\\' height=\\'150\\' fill=\\'%231e293b\\'/><text x=\\'50%\\' y=\\'50%\\' font-family=\\'monospace\\' font-size=\\'14\\' fill=\\'%2394a3b8\\' text-anchor=\\'middle\\' dominant-baseline=\\'middle\\'>IMAGE</text></svg>'">
+                        </div>
+                    </div>
+                </div>
+            `);
+        };
+
+        const bGrammar = (title, context, structure, examples) => step(TYPES.GRAMMAR, title, `
+            <div class="max-w-5xl mx-auto space-y-10 animate-in fade-in py-10 w-full">
+                <div class="text-center space-y-4 mb-12">
+                    <p class="text-[10px] font-bold text-[var(--ar-cyan)] uppercase tracking-[0.3em] mb-2 bg-[var(--ar-cyan)]/10 border border-[var(--ar-cyan)] inline-block px-4 py-1 rounded font-mono">Logic Core</p>
+                    <h2 class="font-heading text-4xl md:text-5xl font-bold text-white tracking-widest uppercase">${title}</h2>
+                </div>
+                
+                <div class="ar-panel p-10">
+                    <p class="text-xl font-sans text-gray-300 mb-8 leading-relaxed text-center">${context}</p>
+                    <div class="bg-slate-950 p-8 rounded border border-slate-700 shadow-inner">
+                        <p class="text-center font-mono text-3xl text-[var(--ar-cyan)] tracking-[0.2em] font-bold uppercase">${structure}</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+                    ${examples.map(ex => `
+                        <div class="bg-slate-900/50 border border-slate-700 p-8 rounded shadow-md text-center hover:border-[var(--ar-cyan)] transition-colors backdrop-blur-sm">
+                            <p class="text-xl font-mono text-gray-300 leading-relaxed">"${ex.text.replace(/\[(.*?)\]/g, `<span class="text-[var(--ar-cyan)] font-bold">$1</span>`)}"</p>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `);
+
+        const bWordBuilder = (id, title, instruction, expectedArr) => {
+            const expectedStr = JSON.stringify(expectedArr).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+            let wordBtns = shuffleArray([...expectedArr]).map(w => `<span class="build-pill" onclick="moveTypeWord(this, '${esc(w)}', '${id}')">${w}</span>`).join('');
+            return step(TYPES.BUILDER, title, `
+                <div class="max-w-4xl mx-auto w-full flex flex-col items-center py-10 animate-in fade-in" data-expected="${expectedStr}" id="wb-data-${id}">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-[0.3em] mb-4 bg-slate-800 border border-slate-700 px-4 py-1 rounded font-mono">Data Input</p>
+                    <h2 class="font-heading text-4xl md:text-5xl font-bold text-white tracking-widest mb-6 text-center uppercase">${title}</h2>
+                    <p class="text-gray-400 font-sans text-lg mb-12 text-center">${instruction}</p>
+                    
+                    <div class="w-full ar-panel text-center pb-12">
+                        <div id="wb-dropzone-${id}" class="min-h-[120px] bg-slate-950 rounded border-2 border-dashed border-slate-700 flex flex-wrap gap-3 items-center justify-center p-6 mb-10 transition-all"></div>
+                        <div class="flex justify-center flex-wrap gap-4 w-full px-6" id="wb-bank-${id}">
+                            ${wordBtns}
+                        </div>
+                        <div class="mt-10 flex justify-between items-center px-8">
+                            <button onclick="resetWb('${id}')" class="text-xs font-bold text-gray-500 hover:text-[var(--ar-red)] uppercase tracking-widest transition font-mono"><i class="fas fa-rotate-left mr-2"></i>Clear</button>
+                            <button id="wb-fb-${id}" class="hidden text-xs font-bold text-[var(--ar-green)] uppercase tracking-widest font-mono pointer-events-none"><i class="fas fa-check mr-2"></i>Verified</button>
+                        </div>
+                    </div>
+                </div>
+            `);
+        }
+
+        const bLogicBoard = (title, instruction, pairs) => {
+            let lefts = pairs.map((p, i) => ({text: p.left, id: i, type: 'L'}));
+            let rights = pairs.map((p, i) => ({text: p.right, id: i, type: 'R'}));
+            for (let i = lefts.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [lefts[i], lefts[j]] = [lefts[j], lefts[i]]; }
+            for (let i = rights.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [rights[i], rights[j]] = [rights[i], rights[i]]; }
+
+            const buildNodes = (arr) => arr.map(item => `
+                <div class="node-card" data-id="${item.id}" data-type="${item.type}" onclick="handleMatch(this)">
+                    ${item.text}
+                </div>
+            `).join('');
+
+            return step(TYPES.VOCAB, title, `
+                <div class="max-w-5xl mx-auto w-full flex flex-col items-center py-10 animate-in fade-in">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-[0.3em] mb-6 font-mono bg-slate-800 border border-slate-700 px-4 py-1 rounded">Fast Match</p>
+                    <h2 class="font-heading text-4xl md:text-5xl font-bold text-white tracking-widest mb-8 text-center uppercase">${title}</h2>
+                    <p class="text-gray-400 font-sans text-lg mb-12 text-center">${instruction}</p>
+                    
+                    <div class="w-full max-w-4xl ar-panel relative p-10" id="match-board">
+                        <div class="grid grid-cols-2 gap-10 w-full">
+                            <div class="flex flex-col gap-6" id="match-left">${buildNodes(lefts)}</div>
+                            <div class="flex flex-col gap-6" id="match-right">${buildNodes(rights)}</div>
+                        </div>
+                    </div>
+                    <div id="match-hub" class="hidden mt-8 text-[var(--ar-green)] font-mono font-bold text-sm bg-[var(--ar-green)]/10 border border-[var(--ar-green)] p-4 rounded uppercase tracking-widest">> Neural pathways connected.</div>
+                </div>
+            `);
+        }
+
+        const bRedactedNotes = (id, title, instruction, text, expectedFixes) => {
+            let expectedFixesCopy = [...expectedFixes]; 
+            let htmlText = text.replace(/\[(.*?)\]/g, (match, word) => {
+                const fixData = expectedFixesCopy.shift();
+                return `<span class="redacted-word" onclick="triggerFixer(this, '${esc(fixData)}')">[ ERROR ]</span>`;
+            });
+
+            return step(TYPES.DRILL, title, `
+                <div class="max-w-4xl mx-auto w-full flex flex-col items-center py-10 animate-in fade-in">
+                    <p class="text-[10px] font-bold text-[var(--ar-red)] uppercase tracking-[0.3em] mb-4 bg-[var(--ar-red)]/10 border border-[var(--ar-red)] px-4 py-1 rounded font-mono">System Override</p>
+                    <h2 class="font-heading text-4xl md:text-5xl font-bold text-white tracking-widest mb-8 text-center uppercase">${title}</h2>
+                    <p class="text-gray-400 font-sans text-lg mb-10 text-center">${instruction}</p>
+                    
+                    <div class="w-full relative overflow-hidden p-0 bg-slate-900 border border-slate-700 rounded shadow-[0_0_30px_rgba(0,0,0,0.5)]">
+                        <div class="border-b border-slate-700 bg-slate-950 p-4 flex justify-between items-center font-mono text-[10px] tracking-widest">
+                            <span class="text-gray-400">SATELLITE LOG</span>
+                            <span class="text-[var(--ar-red)] animate-pulse">CORRUPTED DATA</span>
+                        </div>
+                        <div class="p-8 text-xl font-mono leading-loose text-gray-300 uppercase">${htmlText}</div>
+                        
+                        <div id="fix-panel" class="absolute bottom-0 left-0 w-full bg-slate-950 border-t border-[var(--ar-cyan)] p-6 transform translate-y-full transition-transform duration-300 flex items-center gap-4 z-20">
+                            <span class="text-[var(--ar-cyan)] font-bold text-xs uppercase tracking-widest font-mono">> Patch:</span>
+                            <input type="text" id="fix-input" class="bg-slate-900 text-white border border-slate-700 px-4 py-3 flex-1 text-lg focus:outline-none focus:border-[var(--ar-cyan)] font-mono rounded" autocomplete="off" placeholder="_">
+                            <button onclick="submitFixer()" class="btn-ar !px-6 !py-2 !text-sm">Send</button>
+                        </div>
+                    </div>
+                    <div id="fixer-hub" class="hidden mt-8 text-[var(--ar-green)] font-mono font-bold text-[10px] tracking-widest uppercase">> Log updated.</div>
+                </div>
+            `);
+        }
+
+        const bRoleplay = (title, instruction, prompts) => step(TYPES.SPEAKING, title, `
+            <div class="max-w-5xl mx-auto flex flex-col items-center py-10 animate-in fade-in w-full">
+                <p class="text-[10px] font-bold text-[var(--ar-cyan)] uppercase tracking-[0.3em] mb-4 bg-[var(--ar-cyan)]/10 border border-[var(--ar-cyan)] px-4 py-1 rounded font-mono">Live Comms</p>
+                <h2 class="font-heading text-4xl md:text-5xl font-bold text-white tracking-widest mb-6 text-center uppercase">${title}</h2>
+                <p class="text-gray-400 text-lg font-sans mb-12 text-center max-w-3xl">${instruction}</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl">
+                    ${prompts.map((p, idx) => `
+                        <div class="flip-card w-full h-[280px]" onclick="this.classList.toggle('flipped')">
+                            <div class="flip-inner">
+                                <div class="flip-front">
+                                    <i class="fas fa-headset text-6xl text-[var(--ar-cyan)] mb-6 opacity-50"></i>
+                                    <p class="font-heading text-white text-2xl font-bold tracking-widest uppercase mb-2">Channel 0${idx + 1}</p>
+                                    <p class="text-[10px] text-gray-500 mt-2 font-mono uppercase tracking-[0.2em]">Open Link</p>
+                                </div>
+                                <div class="flip-back">
+                                    <i class="fas fa-satellite-dish text-3xl text-[var(--ar-cyan)] mb-6 opacity-50"></i>
+                                    <p class="text-xl font-sans font-medium text-white leading-relaxed">"${p}"</p>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `);
+
+        // PURE JS LEVER (TUNER)
+        const bTuner = (id, title, instruction, textAff, textAlt, feedback) => step(TYPES.DRILL, title, `
+            <div class="max-w-4xl mx-auto flex flex-col items-center justify-center min-h-[60vh] text-center space-y-10 animate-in fade-in w-full">
+                <p class="text-[10px] font-bold text-[var(--ar-pink)] uppercase tracking-[0.3em] mb-2 bg-[var(--ar-pink)]/10 border border-[var(--ar-pink)] px-4 py-1 rounded font-mono"><i class="fas fa-wave-square mr-2"></i> Freq Shift</p>
+                <h2 class="font-heading text-4xl md:text-5xl font-bold text-white tracking-widest leading-tight uppercase">${title}</h2>
+                <p class="text-lg font-sans text-gray-400 max-w-2xl">${instruction}</p>
+                
+                <div class="w-full max-w-3xl ar-panel flex flex-col items-center py-16 relative">
+                    <div class="flex items-center gap-8 mb-12 w-full justify-center">
+                        <span class="font-bold text-[var(--ar-pink)] tracking-widest text-[10px] w-24 text-right uppercase font-mono transition-colors" id="mode-aff-${id}">Target (She)</span>
+                        
+                        <!-- PURE JS LEVER -->
+                        <div class="lever-container lever-state-left" id="lever-${id}" onclick="toggleLeverTuner('${id}', '${esc(textAff)}', '${esc(textAlt)}', '${esc(feedback)}')">
+                            <div class="lever-knob"></div>
+                        </div>
+
+                        <span class="font-bold text-gray-500 tracking-widest text-[10px] w-24 text-left uppercase font-mono transition-colors" id="mode-alt-${id}">Self (I)</span>
+                    </div>
+
+                    <div class="bg-slate-950 w-full p-8 flex items-center justify-center min-h-[120px] rounded border border-slate-700 shadow-inner">
+                        <p id="tuner-text-${id}" class="text-2xl font-bold transition-opacity duration-300 font-mono text-white tracking-wide uppercase">"${textAff.replace(/\[(.*?)\]/g, `<span class="text-[var(--ar-pink)] underline decoration-wavy">$1</span>`)}"</p>
+                    </div>
+                    
+                    <div id="tuner-fb-${id}" class="hidden mt-8 font-bold text-[10px] font-mono text-[var(--ar-cyan)] uppercase tracking-widest">
+                        > ${feedback}
+                    </div>
+                </div>
+            </div>
+        `);
+
+        const bDebateFlip = (title, instruction, cards) => step(TYPES.SPEAKING, title, `
+            <div class="max-w-5xl mx-auto flex flex-col items-center py-10 animate-in fade-in w-full">
+                <p class="text-[10px] font-bold text-[var(--ar-cyan)] uppercase tracking-[0.3em] mb-6 bg-[var(--ar-cyan)]/10 border border-[var(--ar-cyan)] px-4 py-1 rounded font-mono">Analysis</p>
+                <h2 class="font-heading text-4xl md:text-5xl font-bold text-white tracking-widest mb-4 text-center uppercase">${title}</h2>
+                <p class="text-gray-400 text-lg font-sans mb-12 text-center max-w-2xl">${instruction}</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl">
+                    ${cards.map((card, idx) => `
+                        <div class="flip-card w-full h-[250px]" onclick="this.classList.toggle('flipped')">
+                            <div class="flip-inner">
+                                <div class="flip-front">
+                                    <i class="fas fa-radar text-5xl text-[var(--ar-cyan)] mb-4 opacity-70"></i>
+                                    <p class="font-heading text-white text-xl font-bold tracking-widest uppercase">Query 0${idx + 1}</p>
+                                </div>
+                                <div class="flip-back">
+                                    <p class="text-xl font-sans font-medium text-white leading-relaxed">"${card}"</p>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `);
+
+        const bWrap = () => step(TYPES.WRAP, "Mission Complete", `
+            <div class="text-center max-w-3xl mx-auto flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in">
+                <div class="w-32 h-32 bg-slate-900 rounded-full border border-[var(--ar-cyan)] flex items-center justify-center mb-8 shadow-[0_0_40px_rgba(6,182,212,0.4)] relative">
+                    <div class="absolute inset-2 border-2 border-[var(--ar-cyan)] rounded-full animate-ping opacity-20"></div>
+                    <i class="fas fa-check text-6xl text-[var(--ar-cyan)] relative z-10"></i>
+                </div>
+                <h1 class="font-heading text-6xl md:text-8xl font-black text-white tracking-widest mb-6 uppercase drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]">Target <br> Lost</h1>
+                <p class="text-xl text-[var(--ar-muted)] mb-12 font-sans max-w-xl mx-auto leading-relaxed">Paula is moving to Manchester. You mastered <strong class="text-white">IN, ON, AT</strong>.</p>
+                <button onclick="goHome()" class="btn-ar px-12 py-4 text-sm tracking-[0.2em] shadow-[0_0_20px_rgba(6,182,212,0.3)]">
+                    Close Link
+                </button>
+            </div>
+        `);
+
+        // --- LESSON DATA (ROUTE 03 CITYSCAPE) - EXACTLY 25 STEPS ---
+        const lessonData = [
+            // PHASE 1: Boot
+            bGuide("Project Cityscape", [
+                "Level: A1 Beginner.", 
+                "Theme: AR Geo-Tracking.",
+                "Grammar: Prepositions of Place (IN, ON, AT).",
+                "Mission: Find Paula in London."
+            ]),
+            
+            bSlider("Travel Habits", "How do you travel?", "I run fast", "I explore", 
+                ["Are you a fast traveler or a slow tourist?", "Do you like big cities?"],
+                ["When I travel, I usually...", "I think big cities are..."]
+            ),
+
+            bDataSync("sync1", "Landmark Data", "Drag the data labels to the correct holographic location to sync the system.", [
+                {word: "Park", def: "A green area with trees.", imgKeyword: "park"},
+                {word: "Bridge", def: "A structure over a river.", imgKeyword: "bridge"},
+                {word: "River", def: "Water flowing through a city.", imgKeyword: "river"},
+                {word: "Shops", def: "Places to buy things.", imgKeyword: "shopping"}
+            ]),
+
+            bLogicBoard("Adjectives", "Match the adjectives to their definitions.", [
+                {left: "Big", right: "Large in size."},
+                {left: "Busy", right: "Full of people."},
+                {left: "Amazing", right: "Very good or impressive."}
+            ]),
+
+            // PHASE 2: Target Acquired (FULL VIDEO FIRST)
+            bVideo("Target Acquired", "4SHGkvbva3I", 0, null, "Watch the full camera feed. Pay attention to where Paula goes!"),
+
+            bConsultQuiz("q1", "Data Extraction", "What is Paula doing in the video?", [
+                "She is sleeping in the hotel.",
+                "She is exploring London.",
+                "She is cycling to Edinburgh."
+            ], 1),
+
+            bGrammar("Rule of IN", "Use 'IN' for enclosed 3D spaces or large areas with borders (like cities or parks).", 
+                "IN + SPACE", [
+                {text: "She is [in] London."},
+                {text: "She is [in] Hyde Park."}
+            ]),
+
+            // PHASE 3: The Custom Mechanic (Geo-Calibrator)
+            bGeoCalibrator("geo1", "Calibrate Position", "Drag the correct preposition to lock the coordinates.", 
+                "Paula is ", "IN", " Hyde Park.", "park"
+            ),
+
+            bGrammar("Rule of ON", "Use 'ON' for surfaces or lines (like roads, bridges, or rivers).", 
+                "ON + SURFACE", [
+                {text: "She is [on] a bridge."},
+                {text: "The bridge is [on] the river."}
+            ]),
+
+            bGeoCalibrator("geo2", "Calibrate Position", "Drag the correct preposition to lock the coordinates.", 
+                "Paula is ", "ON", " a bridge.", "bridge"
+            ),
+
+            bGrammar("Rule of AT", "Use 'AT' for specific points on a map or specific locations/events.", 
+                "AT + POINT", [
+                {text: "She is [at] the shops."},
+                {text: "She is [at] the restaurant."}
+            ]),
+
+            bGeoCalibrator("geo3", "Calibrate Position", "Drag the correct preposition to lock the coordinates.", 
+                "Paula is ", "AT", " the shops.", "shopping"
+            ),
+
+            // PHASE 4: System Override & Syntax
+            bRedactedNotes("fix1", "System Override", "The satellite log has an error. Fix the preposition.", 
+                "Alert: Target located. She is [on] the park.", 
+                ["in"]
+            ),
+
+            bWordBuilder("wb1", "Data Input", "Build the sentence to save the log.", 
+                ["She", "is", "on", "a", "bridge", "over", "the", "river."]
+            ),
+
+            bWordBuilder("wb2", "Data Input", "Build the sentence about the food.", 
+                ["The", "restaurants", "in", "London", "are", "amazing."]
+            ),
+
+            bVideo("New Route", "4SHGkvbva3I", 160, null, "Watch the feed again from this point. Where is Paula going next?"),
+
+            bConsultQuiz("q2", "Data Extraction", "Where is Paula going next?", [
+                "Edinburgh",
+                "Manchester",
+                "Cambridge"
+            ], 1),
+
+            // PHASE 5: Live Comms & Roleplay
+            bRoleplay("Voice Link", "Read the dialogue aloud to simulate Paula's communication.", [
+                "Paula: 'London is big! And it is busy... very busy!'",
+                "Paula: 'I am at the shops. I am in Hyde Park!'"
+            ]),
+
+            bTuner("tun1", "Frequency Shift", "Use the lever to change the pronoun from 'She' to 'I' and adjust the verb.", 
+                "[She is] at the shops.", "[I am] at the shops.", 
+                "Update: Changed Subject to 1st Person."
+            ),
+
+            bDebateFlip("City Scan", "Flip the cards and discuss your city.", [
+                "Are there big parks in your city? Are you usually IN them?",
+                "Are the restaurants amazing in your city?"
+            ]),
+
+            bRoleplay("Open Mic", "Imagine you are tracking a friend in YOUR city. Speak out loud.", [
+                "Target is moving... He is IN the...",
+                "Wait, now he is AT the..."
+            ]),
+
+            // PHASE 6: Verification
+            bSlider("The Mastermind", "Is Paula smart?", "She is wasting time", "She is a genius", 
+                ["Why did Paula stay in London?"],
+                ["I think Paula is smart because..."]
+            ),
+
+            bWordBuilder("wb3", "Route Update", "Build the final sentence.", 
+                ["She", "is", "going", "to", "Manchester", "by", "bus."]
+            ),
+
+            bLogicBoard("Fast Match", "Match the preposition to the correct location type.", [
+                {left: "IN", right: "The Park (3D Area)"},
+                {left: "ON", right: "The Bridge (Surface)"},
+                {left: "AT", right: "The Shops (Point)"}
+            ]),
+
+            bWrap()
+        ];
+
+        // --- RUNTIME LOGIC ---
+        
+        // NEW DYNAMIC VOCAB: DATA SYNC (DRAG & DROP)
+        let activeSyncPill = null;
+
+        function dragSync(e, el) { e.dataTransfer.setData('text', el.dataset.word); el.classList.add('dragging'); }
+        function allowDropSync(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+        function leaveDropSync(e) { e.currentTarget.classList.remove('drag-over'); }
+        function dropSync(e, zone, id) { e.preventDefault(); zone.classList.remove('drag-over'); const word = e.dataTransfer.getData('text'); if(word) checkSyncMatch(word, zone, id); }
+        
+        function checkSyncMatch(wordStr, zone, id) {
+            const expected = zone.dataset.expected;
+            if(zone.classList.contains('matched')) return;
+
+            if(wordStr === expected) {
+                // Success
+                const targetArea = zone.querySelector('.sync-target-area');
+                targetArea.innerHTML = `<span class="text-lg font-bold text-[var(--ar-cyan)] tracking-widest uppercase">` + wordStr + `</span>`;
+                targetArea.style.borderStyle = 'solid';
+                targetArea.style.borderColor = 'var(--ar-cyan)';
+                
+                zone.classList.add('matched');
+                
+                // Hide pill
+                const pill = document.getElementById(`sync-bank-${id}`).querySelector(`[data-word="${wordStr}"]`);
+                if(pill) pill.style.display = 'none';
+
+                state.xp += 5; updateHUD(); shootConfetti();
+                
+            } else {
+                zone.classList.add('shake');
+                zone.style.borderColor = 'var(--ar-red)';
+                state.hp -= 5; updateHUD();
+                
+                setTimeout(() => {
+                    zone.classList.remove('shake');
+                    zone.style.borderColor = '';
+                }, 400);
+            }
+        }
+
+        // CUSTOM MECHANIC: GEO-CALIBRATOR (DRAG & DROP)
+        let activeGeoPill = null;
+
+        function dragGeo(e, el) { e.dataTransfer.setData('text', el.dataset.word); el.classList.add('dragging'); }
+        function allowDropGeo(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+        function leaveDropGeo(e) { e.currentTarget.classList.remove('drag-over'); }
+        function dropGeo(e, zone, id) { e.preventDefault(); zone.classList.remove('drag-over'); const word = e.dataTransfer.getData('text'); if(word) checkGeoMatch(word, zone, id); }
+        
+        function checkGeoMatch(wordStr, zone, id) {
+            const expected = zone.dataset.expected;
+            if(zone.classList.contains('filled')) return;
+
+            if(wordStr === expected) {
+                // Success
+                zone.innerHTML = wordStr;
+                zone.classList.add('filled');
+                
+                // Animate Map & Polaroid
+                const mapContainer = document.getElementById(`geo-map-${id}`);
+                mapContainer.classList.add('verified');
+                
+                // Hide pill
+                const pill = document.getElementById(`geo-bank-${id}`).querySelector(`[data-word="${wordStr}"]`);
+                if(pill) pill.style.display = 'none';
+
+                state.xp += 10; updateHUD(); shootConfetti();
+                
+            } else {
+                zone.innerHTML = wordStr;
+                zone.style.color = 'var(--ar-red)';
+                zone.style.borderBottomColor = 'var(--ar-red)';
+                zone.classList.add('shake');
+                state.hp -= 10; updateHUD();
+                
+                setTimeout(() => {
+                    zone.classList.remove('shake');
+                    zone.innerHTML = '___';
+                    zone.style.color = '';
+                    zone.style.borderBottomColor = '';
+                }, 800);
+            }
+        }
+
+        // Drawers
+        function toggleLessonNavigator() { document.getElementById('lesson-navigator').classList.toggle('active'); document.getElementById('teacher-hud')?.classList.remove('active'); document.getElementById('whiteboard')?.classList.remove('active');}
+        function toggleTeacherHUD() { document.getElementById('teacher-hud').classList.toggle('active'); document.getElementById('lesson-navigator')?.classList.remove('active'); document.getElementById('whiteboard')?.classList.remove('active');}
+        function toggleWhiteboard() { document.getElementById('whiteboard').classList.toggle('active'); document.getElementById('lesson-navigator')?.classList.remove('active'); document.getElementById('teacher-hud')?.classList.remove('active');}
+        
+        function buildLessonNavigator() {
+            const list = document.getElementById('nav-steps-list'); if (!list) return; list.innerHTML = '';
+            lessonData.forEach((step, i) => {
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left p-3 rounded flex items-center gap-3 transition-all text-sm mb-2 border border-transparent ${i === state.current ? 'bg-slate-800/50 text-white font-bold border-slate-700 border-l-2 !border-l-[var(--ar-cyan)]' : 'text-gray-500 hover:bg-slate-900 hover:text-white hover:border-slate-800'}`;
+                btn.innerHTML = `<span class="w-6 opacity-50 font-bold font-mono text-[10px]">${(i+1).toString().padStart(2,'0')}</span><div class="flex flex-col truncate"><span class="truncate font-sans">${step.title}</span></div>`;
+                btn.onclick = () => { state.current = i; renderStep(); toggleLessonNavigator(); };
+                list.appendChild(btn);
+            });
+        }
+
+        // Praise System
+        function triggerPraise(main, sub) {
+            document.getElementById('teacher-hud')?.classList.remove('active'); 
+            const overlay = document.getElementById('praise-overlay'); 
+            const ptMain = document.getElementById('praise-main');
+            const ptSub = document.getElementById('praise-sub');
+            const card = document.getElementById('praise-card');
+            const icon = document.getElementById('praise-icon');
+            const circle = document.getElementById('praise-circle');
+            
+            ptMain.innerText = main;
+            ptSub.innerText = sub;
+
+            if(main === 'SYSTEM ALIGNED') {
+                icon.className = "fas fa-check text-7xl relative z-10 text-[var(--ar-green)]";
+                circle.className = "w-40 h-40 rounded-full border-4 mx-auto mb-8 flex items-center justify-center bg-[#020617] relative overflow-hidden border-[var(--ar-green)] shadow-[0_0_40px_rgba(16,185,129,0.4)] text-[var(--ar-green)]";
+                ptMain.className = "font-heading text-5xl md:text-7xl font-bold tracking-[0.2em] uppercase mb-4 text-[var(--ar-green)] drop-shadow-[0_0_15px_rgba(16,185,129,0.5)]";
+            } else {
+                icon.className = "fas fa-microphone text-7xl relative z-10 text-[var(--ar-cyan)]";
+                circle.className = "w-40 h-40 rounded-full border-4 mx-auto mb-8 flex items-center justify-center bg-[#020617] relative overflow-hidden border-[var(--ar-cyan)] shadow-[0_0_40px_rgba(6,182,212,0.4)] text-[var(--ar-cyan)]";
+                ptMain.className = "font-heading text-5xl md:text-7xl font-bold tracking-[0.2em] uppercase mb-4 text-[var(--ar-cyan)] drop-shadow-[0_0_15px_rgba(6,182,212,0.5)]";
+            }
+            
+            overlay.classList.remove('opacity-0', 'pointer-events-none');
+            setTimeout(() => card.classList.replace('scale-50', 'scale-100'), 50); 
+            shootConfetti();
+            
+            setTimeout(() => { 
+                card.classList.replace('scale-100', 'scale-50'); 
+                overlay.classList.add('opacity-0', 'pointer-events-none'); 
+            }, 2500);
+        }
+
+        function toggleElementClass(id, action, className) {
+            const el = document.getElementById(id);
+            if (el) {
+                if (action === 'add') el.classList.add(className);
+                else if (action === 'remove') el.classList.remove(className);
+            }
+        }
+
+        function startMission() {
+            toggleElementClass('dashboard', 'add', 'hidden'); toggleElementClass('dashboard', 'remove', 'flex');
+            toggleElementClass('hud-top', 'remove', 'hidden'); toggleElementClass('hud-top', 'add', 'flex');
+            toggleElementClass('mission-arena', 'remove', 'hidden'); toggleElementClass('mission-arena', 'add', 'flex');
+            toggleElementClass('nav-console', 'remove', 'hidden'); toggleElementClass('nav-console', 'add', 'flex');
+            buildLessonNavigator(); renderStep();
+        }
+
+        function goHome() {
+            toggleElementClass('dashboard', 'remove', 'hidden'); toggleElementClass('dashboard', 'add', 'flex');
+            toggleElementClass('hud-top', 'add', 'hidden'); toggleElementClass('hud-top', 'remove', 'flex');
+            toggleElementClass('mission-arena', 'add', 'hidden'); toggleElementClass('mission-arena', 'remove', 'flex');
+            toggleElementClass('nav-console', 'add', 'hidden'); toggleElementClass('nav-console', 'remove', 'flex');
+            
+            document.getElementById('lesson-navigator')?.classList.remove('active');
+            document.getElementById('teacher-hud')?.classList.remove('active');
+            document.getElementById('whiteboard')?.classList.remove('active');
+            state.current = 0; updateHUD();
+        }
+
+        function renderStep() {
+            if (!lessonData || !lessonData[state.current]) return;
+            const step = lessonData[state.current];
+            const content = document.getElementById('mission-content'); 
+
+            if(content) content.innerHTML = `<div class="w-full max-w-7xl mx-auto">${step.html}</div>`;
+            updateHUD();
+            
+            if (step.type === TYPES.BUILDER) setTimeout(setupWb, 100);
+        }
+
+        function nextStep() { if (state.current < lessonData.length - 1) { state.current++; renderStep(); } else { goHome(); } }
+        function prevStep() { if (state.current > 0) { state.current--; renderStep(); } }
+        
+        function toggleFullscreen() { if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(err => console.log(err)); } else { if (document.exitFullscreen) document.exitFullscreen(); } }
+
+        // PURE JS LEVER (TUNER)
+        function toggleLeverTuner(id, textAff, textAlt, feedback) {
+            const container = document.getElementById(`lever-${id}`);
+            const textEl = document.getElementById(`tuner-text-${id}`);
+            const aff = document.getElementById(`mode-aff-${id}`); 
+            const alt = document.getElementById(`mode-alt-${id}`);
+            
+            textEl.style.opacity = 0;
+            setTimeout(() => {
+                if(container.classList.contains('lever-state-left')) {
+                    // Switch to Right (Fixed)
+                    container.classList.replace('lever-state-left', 'lever-state-right');
+                    aff.classList.replace('text-[var(--ar-pink)]', 'text-gray-500'); 
+                    alt.classList.replace('text-gray-500', 'text-[var(--ar-cyan)]');
+                    textEl.innerHTML = textAlt.replace(/\[(.*?)\]/g, `<span class="text-[var(--ar-cyan)] font-bold">$1</span>`); 
+                    document.getElementById(`tuner-fb-${id}`).classList.remove('hidden');
+                } else {
+                    // Switch to Left (Bug)
+                    container.classList.replace('lever-state-right', 'lever-state-left');
+                    aff.classList.replace('text-gray-500', 'text-[var(--ar-pink)]'); 
+                    alt.classList.replace('text-[var(--ar-cyan)]', 'text-gray-500');
+                    textEl.innerHTML = textAff.replace(/\[(.*?)\]/g, `<span class="text-[var(--ar-pink)] underline decoration-wavy">$1</span>`); 
+                    document.getElementById(`tuner-fb-${id}`).classList.add('hidden');
+                }
+                textEl.style.opacity = 1;
+            }, 200);
+        }
+
+        // LÓGICA DA CORREÇÃO DE CÓDIGO
+        let activeBug = null; let expectedFix = "";
+        function triggerFixer(el, answer) {
+            if(el.classList.contains('redacted-fixed')) return;
+            activeBug = el; expectedFix = answer;
+            const panel = document.getElementById('fix-panel'); panel.classList.remove('translate-y-full');
+            document.getElementById('fix-input').value = ''; document.getElementById('fix-input').focus();
+        }
+        function submitFixer() {
+            const input = document.getElementById('fix-input').value.trim().toLowerCase();
+            const panel = document.getElementById('fix-panel');
+            if(input === expectedFix.toLowerCase()) {
+                activeBug.innerText = expectedFix.toUpperCase(); activeBug.classList.remove('redacted-word'); activeBug.classList.add('redacted-fixed');
+                panel.classList.add('translate-y-full');
+                const container = document.getElementById('mission-content');
+                if(container.querySelectorAll('.redacted-word').length === 0) { shootConfetti(); state.xp += 10; updateHUD(); document.getElementById('fixer-hub').classList.remove('hidden');}
+            } else {
+                const inputEl = document.getElementById('fix-input'); inputEl.classList.add('shake', 'border-[var(--ar-red)]');
+                state.hp -= 10; updateHUD(); setTimeout(() => inputEl.classList.remove('shake', 'border-[var(--ar-red)]'), 400);
+            }
+        }
+        document.getElementById('fix-input')?.addEventListener('keypress', (e) => { if (e.key === 'Enter') submitFixer(); });
+
+        // LÓGICA DA LIGAÇÃO DE DADOS (Logic Board)
+        let activeMatch = null; let matchesMatched = 0;
+        function handleMatch(node) {
+            if (node.classList.contains('matched')) return;
+            if (!activeMatch) { activeMatch = node; node.classList.add('active'); } 
+            else {
+                if (activeMatch.dataset.type !== node.dataset.type && activeMatch.dataset.id === node.dataset.id) {
+                    activeMatch.classList.replace('active', 'matched'); node.classList.add('matched');
+                    activeMatch = null; matchesMatched++; state.xp += 5; updateHUD();
+                    if(matchesMatched === document.getElementById('match-board').children[0].children.length) { document.getElementById('match-hub').classList.remove('hidden'); shootConfetti(); matchesMatched = 0; }
+                } else {
+                    activeMatch.classList.remove('active'); activeMatch.classList.add('shake', 'border-[var(--ar-red)]'); node.classList.add('shake', 'border-[var(--ar-red)]');
+                    state.hp -= 5; updateHUD();
+                    setTimeout(() => { activeMatch.classList.remove('shake', 'border-[var(--ar-red)]'); node.classList.remove('shake', 'border-[var(--ar-red)]'); activeMatch = null; }, 400);
+                }
+            }
+        }
+
+        // LÓGICA DO MCQ
+        function handleQuizTrial(id, row, isCorrect) {
+            if(row.classList.contains('locked-check')) return;
+            const parent = row.parentElement; 
+            Array.from(parent.children).forEach(child => { child.onclick = null; child.classList.add('opacity-50', 'cursor-default'); child.classList.remove('locked-check');});
+            row.classList.remove('opacity-50'); 
+            if(isCorrect) { row.classList.add('correct'); state.xp += 5; updateHUD(); shootConfetti(); } 
+            else { row.classList.add('wrong'); state.hp -= 10; updateHUD(); }
+        }
+
+        // --- WORD BUILDER LOGIC ---
+        let wbState = {};
+        function setupWb() { document.querySelectorAll('[id^="wb-data-"]').forEach(el => { const id = el.id.replace('wb-data-', ''); wbState[id] = { current: [], expected: JSON.parse(el.getAttribute('data-expected')) }; }); }
+        function moveTypeWord(pill, word, id) {
+            if(pill.classList.contains('used') || !wbState[id]) return;
+            wbState[id].current.push(word); pill.classList.add('used');
+            const dz = document.getElementById(`wb-dropzone-${id}`);
+            
+            const newPill = document.createElement('span'); 
+            newPill.className = 'font-mono text-xl text-[var(--ar-bg)] font-bold bg-[var(--ar-cyan)] px-4 py-2 rounded shadow-[0_0_10px_#06b6d4] uppercase'; 
+            newPill.innerText = word; 
+            dz.appendChild(newPill);
+            
+            if(wbState[id].current.length === wbState[id].expected.length) {
+                if(wbState[id].current.every((val, index) => val === wbState[id].expected[index])) { 
+                    dz.classList.add('border-[var(--ar-green)]', 'bg-[var(--ar-green)]/10');
+                    document.getElementById(`wb-fb-${id}`).classList.remove('hidden'); 
+                    state.xp += 10; updateHUD(); shootConfetti(); 
+                }
+                else { 
+                    dz.classList.add('shake', 'border-[var(--ar-red)]'); 
+                    state.hp -= 10; updateHUD();
+                    setTimeout(() => dz.classList.remove('shake', 'border-[var(--ar-red)]'), 400); 
+                }
+            }
+        }
+        function resetWb(id) {
+            if(!wbState[id]) return;
+            wbState[id].current = []; 
+            const dz = document.getElementById(`wb-dropzone-${id}`);
+            dz.innerHTML = ''; dz.classList.remove('border-[var(--ar-green)]', 'bg-[var(--ar-green)]/10');
+            document.getElementById(`wb-fb-${id}`).classList.add('hidden');
+            document.getElementById(`wb-bank-${id}`).querySelectorAll('.build-pill').forEach(p => p.classList.remove('used'));
+        }
+
+        function shuffleArray(array) {
+            let curId = array.length;
+            while (0 !== curId) { let randId = Math.floor(Math.random() * curId); curId -= 1; let tmp = array[curId]; array[curId] = array[randId]; array[randId] = tmp; }
+            return array;
+        }
+
+        // --- FX ---
+        function shootConfetti() {
+            const cCanvas = document.getElementById('confetti-canvas'); const cCtx = cCanvas.getContext('2d');
+            cCanvas.width = window.innerWidth; cCanvas.height = window.innerHeight;
+            const pieces = []; const colors = ['#06b6d4', '#ec4899', '#3b82f6', '#f8fafc']; 
+            for(let i=0; i<80; i++) pieces.push({ x: cCanvas.width/2, y: cCanvas.height/2+100, vx: (Math.random()-0.5)*20, vy: (Math.random()-1)*20-5, size: Math.random()*8+4, color: colors[Math.floor(Math.random()*colors.length)], rot: Math.random()*360, rotSpeed: (Math.random()-0.5)*10 });
+            function animateC() {
+                cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height); let active = false;
+                pieces.forEach(p => {
+                    p.x += p.vx; p.y += p.vy; p.vy += 0.5; p.rot += p.rotSpeed; if(p.y < cCanvas.height) active = true;
+                    cCtx.save(); cCtx.translate(p.x, p.y); cCtx.rotate(p.rot*Math.PI/180); cCtx.fillStyle = p.color; 
+                    cCtx.fillRect(-p.size/2, -p.size/2, p.size, p.size); cCtx.restore();
+                });
+                if(active) requestAnimationFrame(animateC); else cCtx.clearRect(0, 0, cCanvas.width, cCanvas.height);
+            }
+            animateC();
+        }
+        
+        window.onload = () => { updateHUD(); goHome(); };
+    </script>
+</body>
+</html>
